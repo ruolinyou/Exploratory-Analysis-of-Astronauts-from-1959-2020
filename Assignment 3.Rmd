@@ -1,0 +1,226 @@
+---
+title: "Assignment 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE)
+```
+
+## *Ruolin You* **S4641373**
+## Exploratory Analysis of Astronauts from 1959–2020
+---
+
+```{r}
+#install.packages("tidytuesdayR")
+#install.packages("tidyverse")
+#install.packages("ggplot2") 
+#install.packages("knitr") 
+#install.packages("tidymodels")
+
+library(tidytuesdayR)
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(tidymodels)
+```
+
+# Motivation
+
+Thinking of when we are children and the world appears to be filled with infinite, endless and marvellous opportunities, we were asked what we wished to be. While there were many different responses, such as Doctors, Firefighters, Police, or President, some decided to become astronauts or work for Aeronautics. Although it is not an easy task, this report is amttempt to explore those who have become Astronauts and what the space missions have been like over the years and ideally give information and inspire those who are trying to make their dreams for space a reality.
+
+# Background
+
+This database I use contains publicly available information about all astronauts who participated in space missions before 15 January 2020 collected from NASA, Roscosmos, and fun-made websites. The provided information includes full astronaut name, sex, date of birth, nationality, military status, a title and year of a selection program, and information about each mission completed by a particular astronaut such as a year, ascend and descend shuttle names, mission and extravehicular activity (EVAs) durations.
+
+# Data Cleaning/Processing
+
+```{r}
+astronauts <- read_csv ("astronauts.csv")
+
+# Check for missing values in the necessary parts of the dataset
+varuse <- c("name", "sex", "nationality", "year_of_mission", "eva_hrs_mission",
+            "hours_mission", "year_of_birth")
+
+# Count the total number of missing values, no missing
+sum(! complete.cases(astronauts[, varuse]))
+```
+
+# Research questions
+### *1.What is the development of the aerospace industry in different countries?*
+### *2.What have space missions been like over the years*
+### *3.What are the characteristics of astronauts population*
+### inspired by question 2 
+### *4.what is the relationship between the number of space flights per year and the number of extravehicular activity (EVAs) per year?* 
+
+## 1.The statistics of spaceflight development in different countries
+
+```{r}
+# Statistics on the start of astronauts' space flights by country, number of participants 
+country_sum <- astronauts %>%
+  group_by(nationality) %>%
+  summarise(year_begin = min(year_of_mission),
+            people_times = length(name))
+
+# Sort by launch time
+kable(country_sum[order(country_sum$year_begin), ])
+
+# Use the bar chart to show the top 10 countries in terms of spaceflight attendance
+country_sumtop <- country_sum[order(- country_sum$people_times)[1:10], ]
+
+ggplot(aes(x = nationality, y = people_times, fill = nationality), data = country_sumtop) +
+  geom_bar(stat = "identity") +
+  scale_x_discrete(limits = country_sumtop$nationality) +
+  theme(axis.text.x = element_text(angle = 45)) +
+  geom_text(aes(label = year_begin), size = 4, color = "blue",vjust = 0) +
+  labs(x = "number of astronauts", y = "country", title = "Top 10 countries of space attendance") 
+```
+
+First of all, we can see that the United States has been a leader in the space industry. Since 1962, the United States has had 854 astronauts on space missions. This number is much higher than the second place Russia, with 273 astronauts. The following well-developed countries are Japan, Canada, France, Germany, China, Italy, the United Kingdom and Australia. China only starts its space mission on 2005, but it has made to the top 7. This country apparently has made some major investments on its space industry. However, from the large gap in the graph, we can say that the development of these countries falls short of the history or astronaut numbers of the United States.
+
+## 2.The statistics of space missions over the years
+### Analysis of annual manned spaceflight and EVA trips.
+
+```{r}
+world_sum <- astronauts %>%
+  group_by(year_of_mission) %>%
+  summarise(people_times = length(name),
+            EVA_times = sum(eva_hrs_mission > 0))
+
+kable(world_sum)
+
+# Drawing line graphs
+ggplot(aes(x = year_of_mission), data = world_sum) +
+  geom_line(aes(y = people_times, color = "people_times")) +
+  geom_line(aes(y = EVA_times, color = "EVA_times")) +
+  geom_point(aes(y = EVA_times, color = "EVA_times")) +
+  geom_point(aes(y = people_times, color = "people_times")) +
+  scale_x_continuous(breaks = seq(1960, 2010, 10)) +
+  scale_color_manual(name = "class", values = c("people_times" = "green", 'EVA_times' = "red")) + 
+  labs(x = "year", y = "number of astronauts", title = "Annual manned spaceflight and EVA trips")
+```
+
+Second, this chart shows the number of people on space missions and the number of extravehicular activities per year in each country of the world. We can see that the period 1980 to 2010 was a peak in aviation - on average, 30 astronauts flew missions each year. In 1985, there were 62 astronauts on mission, and in 1992 and 1997 there were 58 each. In terms of the number of extravehicular activities, astronauts began flying EVA missions in 1965. Between 1980 and 2000, the number of extravehicular  missions also reached a peak. In 2009, as many as 22 people flew extravehicular activities.
+
+### Analysis of astronauts' time per flight and EVA time
+
+```{r}
+##### Time per flight
+# A time of 0 is a launch failure
+kable(unclass(summary(astronauts$hours_mission)), col.names = "hours_mission")
+
+# Drawing histogram
+ggplot(aes(x = hours_mission), data = astronauts) +
+  geom_histogram(binwidth = 500, fill = "blue") +
+  geom_vline(aes(xintercept=mean(hours_mission, na.rm=T)), color="red", linetype="dashed", size=1) +  
+  labs(x = "flight time", y= "frequency", title = "Distribution of the different durations of each flight")
+
+###### Time per EVA
+EVAdata <- astronauts[astronauts$eva_hrs_mission > 0, ]
+kable(unclass(summary(EVAdata$eva_hrs_mission)), col.names = "eva_hrs_mission")
+
+# Drawing histogram
+ggplot(aes(x = eva_hrs_mission), data = EVAdata) +
+  geom_histogram(binwidth = 5, fill = "blue") +
+  geom_vline(aes(xintercept=mean(eva_hrs_mission, na.rm=T)), color="red", linetype="dashed", size=1) +
+  labs(x = "EVA time", y = "frequency", title = "Distribution of the differnt durations of each EVA")
+```
+
+In regard to the analysis of the total time of the astronauts on each mission and the extravehicular activities time. We can see that the average time spent by the astronauts on the mission was 1050.884 hours. The median is 261 hours. On the longest flight, the astronauts flew for a staggering 10505 hours. This is one of the reasons why the average flight time would be considerably longer than the median. In the bar chart we can see that the majority of flights are concentrated in the 250-500 hours range.
+
+In terms of EVA time, the average is 12.43474 hours, with a median of 12.02500 hours. Only one extravehicular activities time reached almost 90 hours, all other missions were less than 40 hours.
+
+## 3.Description of statistical astronaut attributes
+
+```{r}
+# Analysis of the gender of the astronauts and their age at the time of the space mission
+astdata <- astronauts[! duplicated(astronauts$name), ]
+ 
+# Gender Ratio
+asttable <- as.data.frame(table(astronauts$sex))
+asttable$prop <- asttable$Freq / sum(asttable$Freq)
+kable(asttable)
+
+# Drawing Bar Chart
+ggplot(astdata, aes(sex, fill = sex)) +
+  geom_bar(width = 0.5) +
+  labs (x= "sex", y = "number of astronauts", fill = "sex", title = "Astronauts sex distribution")
+        
+# Age of astronauts at the time of the mission
+astronauts$age <- astronauts$year_of_mission - astronauts$year_of_birth
+kable(unclass(summary(astronauts$age )), col.names = "age")
+
+# Drawing histogram
+ggplot(mapping = aes(x = age, fill = age), data = astronauts) +
+  geom_histogram(aes(y = ..density..), bindwith = 0.5, fill= "green") +
+  geom_density(alpha=0.2, fill ="green") +
+  labs(title = "Astronauts age distribution") 
+```
+
+In terms of astronaut attributes, a total of 1,134 male astronauts have been in space, compared to 143 female astronauts, or 11.12%. In terms of age, the average astronaut age is 42.9, with a median of 42.00. The oldest astronaut is 77 years old and the youngest is 26. As can be seen from the bar chart, the age of the astronauts is concentrated in the 30 to 50 range.
+
+## 4.Relationship between the number of space flights per year and the number of EVAs per year 
+
+```{r}
+# Scatter graph
+ggplot(aes(x = people_times, y = EVA_times), data = world_sum) +
+  geom_point() +
+  geom_smooth(method = lm, se = F)
+```
+
+We can see that the more people on space missions per year means more extravehicular activities as well. The slope of the line shows a positive relation between the people_times and EVA_times. 
+
+---
+# Predictive analysis 
+
+For this modeling, we will use all the 2 variables from the dataset.
+Since we are predicting the final EVA_times, EVA_times is our Output variable and people_times is our Input variable or Predictor.
+
+```{r}
+# Split the dataset into Training & Testing
+world_sum_split <- initial_split(world_sum)
+world_sum_train <- training(world_sum_split)
+world_sum_test <- testing(world_sum_split)
+
+# Pre-process the data 
+world_recipe <- recipe(EVA_times ~ people_times, data = world_sum_train)
+summary(world_recipe)
+
+world_recipe <- world_recipe %>%
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes()) %>%
+  step_corr(all_numeric())
+
+world_prep <- prep(world_recipe, training = world_sum_train)
+
+world_bake <- bake(world_prep, world_sum_train)
+
+# Build a model
+model_line <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+(model_line_fit <- model_line %>%
+  fit(EVA_times ~ people_times, data = world_bake))
+
+summary(model_line_fit)
+
+# Create a workflow
+(workflow_world <- workflow() %>%
+  add_recipe(world_recipe) %>%
+  add_model(model_line))
+```
+
+# Conclusion 
+
+The number of manned spacecraft launches per year has declined dramatically and stabilized compared to the 1980-2000 frenzy for aviation in all countries. Still, if you are considering studying or working for Aeronautics, according to my findings, America is the country with the longest history and might give you the ideal environment and resources to achieve such purposes. For astronauts, flying a single flight is a daunting task, and flights of more than 200 hours are very common. We have also seen an extreme case of more than 10,000 hours. Nevertheless, even though if you are people who are not ‘young’, you can still dream big as there is an astronaut who is 77 years old. As for the gender ratio, the quantity of female astronauts is large lower than male peers. We hope to see this situation can be changed in the following years. 
+
+
+References:
+Stavnichuk, Mariya; Corlett, Tatsuya (2020), “Astronaut database”, Mendeley Data, V1, doi: 10.17632/86tsnnbv2w.1
+http://dx.doi.org/10.17632/86tsnnbv2w.1
+
+https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-07-14/readme.md
